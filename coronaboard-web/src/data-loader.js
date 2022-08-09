@@ -5,18 +5,30 @@ const { format, utcToZonedTime } = require('date-fns-tz');
 const _ = require('lodash');
 
 const countryInfo = require('../../tools/downloaded/countryInfo.json');
+const ApiClient = require('./api-client');
+const notice = require('../../tools/downloaded/notice.json');
 
 async function getDataSource() {
     const countryByCc = _.keyBy(countryInfo, 'cc');
-    const globalStats = await generateGlobalStats();
+    const apiClient = new ApiClient();
+
+    // 7장에서 수집해서 저장해둔 전세계 통계를 로드
+    const allGlobalStats = await apiClient.getAllGlobalStats(); // 국가별 데이터 로드
+    // 날짜별로 데이터를 묶는 부분을 기존 generateGlobalStats() 함수에서 추출
+    const groupedByDate = _.groupBy(allGlobalStats, 'date');
+    const globalStats = generateGlobalStats(groupedByDate);
 
     return {
+        lastUpdated: Date.now(), // 데이터를 만든 현재 시간 기록
         globalStats,
         countryByCc,
+        // 공지사항 목록 중 hidden 필드가 false인 항목만 필터하여 전달
+        notice: notice.filter((x) => !x.hidden),
     };
 }
 
-async function generateGlobalStats() {
+function generateGlobalStats(groupedByDate) {
+    /*
     // HTTP 클라이언트 생성
     const apiClient = axios.create({
         baseURL: process.env.CORONABOARD_API_BASE_URL || 'http://localhost:8080',
@@ -27,6 +39,7 @@ async function generateGlobalStats() {
 
     // 날짜 기준 그룹핑
     const groupedByDate = _.groupBy(response.data.result, 'date');
+    */
 
     // 오늘/어제 날짜 생성
     // 데이터가 제공되는 마지막 날짜로 Date 객체 생성
