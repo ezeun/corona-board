@@ -9,6 +9,7 @@ export function YoutubeSlide(props) {
 
     return (
         <Slide id={id} title="관련 유튜브 영상">
+            {/* 각 비디오 정보를 순회하면서 컴포넌트 생성 */}
             {youtubeVideos.map((video) => (
                 <a
                     key={video.videoUrl}
