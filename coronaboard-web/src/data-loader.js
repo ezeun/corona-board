@@ -11,6 +11,8 @@ const notice = require('../../tools/downloaded/notice.json');
 const path = require('path');
 const fs = require('fs-extra');
 
+const { getYouTubeVideosByKeyword } = require('./youtube');
+
 async function getDataSource() {
     const countryByCc = _.keyBy(countryInfo, 'cc');
     const apiClient = new ApiClient();
@@ -19,6 +21,7 @@ async function getDataSource() {
     const allGlobalStats = await apiClient.getAllGlobalStats(); // 국가별 데이터 로드
     // 날짜별로 데이터를 묶는 부분을 기존 generateGlobalStats() 함수에서 추출
     const groupedByDate = _.groupBy(allGlobalStats, 'date');
+
     const globalStats = generateGlobalStats(groupedByDate);
     const globalChartDataByCc = generateGlobalChartDataByCc(groupedByDate);
 
@@ -31,12 +34,39 @@ async function getDataSource() {
         fs.outputFileSync(genPath, JSON.stringify(globalChartDataByCc[cc]));
     });
 
+    // 검사 현황 차트 데이터 생성
+    const koreaTestChartData = generateKoreaTestChartData(allGlobalStats);
+
+    // 7장에서 수집해서 저장해둔 연령대별, 성별 통계를 로드
+    const { byAge, bySex } = await apiClient.getByAgeAndBySex();
+
+    // 유튜브 API를 이용하여 코로나19 관련 영상 정보를 로드
+    const youtubeVideos = await getYouTubeVideosByKeyword('코로나19');
+
     return {
         lastUpdated: Date.now(), // 데이터를 만든 현재 시간 기록
         globalStats,
         countryByCc,
         // 공지사항 목록 중 hidden 필드가 false인 항목만 필터하여 전달
         notice: notice.filter((x) => !x.hidden),
+        koreaTestChartData,
+        koreaBySexChartData: bySex,
+        koreaByAgeChartData: byAge,
+        youtubeVideos,
+    };
+}
+
+function generateKoreaTestChartData(allGlobalStats) {
+    // 전체 국가 데이터 중 한국만 추출
+    const krData = allGlobalStats.filter((x) => x.cc === 'KR');
+
+    return {
+        date: krData.map((x) => x.date),
+        // 확진율 계산
+        confirmedRate: krData.map((x) => x.confirmed / (x.confirmed + x.negative)),
+        confirmed: krData.map((x) => x.confirmed),
+        negative: krData.map((x) => x.negative),
+        testing: krData.map((x) => x.testing),
     };
 }
 
